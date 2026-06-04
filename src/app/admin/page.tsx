@@ -4,6 +4,8 @@ import { User } from "@/lib/db/models/User";
 import { Alert } from "@/lib/db/models/Alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+export const dynamic = "force-dynamic";
+
 async function getStats() {
   await connectDB();
   const [productCount, userCount, alertCount] = await Promise.all([
