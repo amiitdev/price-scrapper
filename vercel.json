@@ -1,0 +1,3 @@
+{
+  "installCommand": "npm install && cp browsers.json node_modules/playwright-core/browsers.json"
+}
