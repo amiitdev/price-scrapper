@@ -10,3 +10,4 @@ playwright-report/
 test-results/
 .vercel
 .vercel-env
+.env.vercel
