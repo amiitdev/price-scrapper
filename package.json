@@ -10,6 +10,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "postinstall": "node scripts/patch-playwright.mjs",
     "seed": "tsx scripts/seed.ts",
     "scrape": "tsx scripts/scrape.ts"
   },
