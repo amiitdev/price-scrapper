@@ -1,4 +1,4 @@
-import { type Page } from "puppeteer-core";
+import { type Page } from "playwright";
 import { createPage, closeBrowser, resetBrowser } from "./browser";
 import { randomUserAgent } from "./user-agents";
 

@@ -1,5 +1,24 @@
-import puppeteer, { type Browser, type Page } from "puppeteer-core";
+import type { Browser, Page } from "playwright";
+import { copyFileSync, existsSync } from "fs";
+import { resolve } from "path";
 import { randomUserAgent } from "./user-agents";
+
+// Vercel serverless excludes playwright-core/browsers.json from the bundle,
+// but playwright hard-requires it at module load time. Patch before dynamic import.
+const stubPath = resolve(process.cwd(), "browsers.json");
+const targetPath = resolve(process.cwd(), "node_modules/playwright-core/browsers.json");
+if (existsSync(stubPath) && !existsSync(targetPath)) {
+  try { copyFileSync(stubPath, targetPath); } catch (e) { console.warn("browsers.json copy failed:", e); }
+}
+
+let playwrightPromise: Promise<typeof import("playwright")> | null = null;
+async function getChromium() {
+  if (!playwrightPromise) {
+    playwrightPromise = import("playwright");
+  }
+  const pw = await playwrightPromise;
+  return pw.chromium;
+}
 
 let browserInstance: Browser | null = null;
 let browserLock: Promise<void> = Promise.resolve();
@@ -14,30 +33,15 @@ function sanitizedEnv(): Record<string, string> {
   return env;
 }
 
-async function resolveBrowserlessWSEndpoint(wsUrl: string): Promise<string> {
-  const token = new URL(wsUrl).searchParams.get("token");
-  if (!token) return wsUrl;
-  const res = await fetch(
-    `https://chrome.browserless.io/json/version?token=${encodeURIComponent(token)}`,
-    { signal: AbortSignal.timeout(10000) },
-  );
-  if (!res.ok) throw new Error(`browserless.io version endpoint returned ${res.status}`);
-  const data = (await res.json()) as { webSocketDebuggerUrl: string };
-  return data.webSocketDebuggerUrl;
-}
-
 async function launchBrowser(): Promise<Browser> {
+  const chromium = await getChromium();
   const wsEndpoint = process.env.PLAYWRIGHT_WS_ENDPOINT;
   if (wsEndpoint) {
-    const cdpEndpoint = wsEndpoint.includes("browserless.io/ws")
-      ? await resolveBrowserlessWSEndpoint(wsEndpoint)
-      : wsEndpoint;
-    return await puppeteer.connect({
-      browserWSEndpoint: cdpEndpoint,
-      defaultViewport: { width: 1920, height: 1080 },
+    return await chromium.connect(wsEndpoint, {
+      timeout: Number(process.env.BROWSER_TIMEOUT) || 60000,
     });
   }
-  return await puppeteer.launch({
+  return await chromium.launch({
     headless: true,
     timeout: 15000,
     args: [
@@ -61,7 +65,7 @@ export async function getBrowser(): Promise<Browser> {
   return withLock(async () => {
     if (browserInstance) {
       try {
-        if (browserInstance.connected) {
+        if (browserInstance.isConnected()) {
           return browserInstance;
         }
       } catch {
@@ -81,16 +85,18 @@ export async function createPage(options?: {
   let browser = await getBrowser();
   for (let i = 0; i < 2; i++) {
     try {
-      const context = await browser.createBrowserContext();
-      const page = await context.newPage();
-      await page.setUserAgent(randomUserAgent());
-      await page.setViewport(options?.viewport ?? { width: 1920, height: 1080 });
-      await page.setExtraHTTPHeaders({
-        "Accept-Language": "en-IN,en;q=0.9,hi;q=0.8",
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      const context = await browser.newContext({
+        userAgent: randomUserAgent(),
+        viewport: options?.viewport ?? { width: 1920, height: 1080 },
+        locale: options?.locale ?? "en-IN",
+        timezoneId: "Asia/Kolkata",
+        extraHTTPHeaders: {
+          "Accept-Language": "en-IN,en;q=0.9,hi;q=0.8",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
       });
-      page.setDefaultTimeout(Number(process.env.BROWSER_TIMEOUT) || 30000);
-      return page;
+      context.setDefaultTimeout(Number(process.env.BROWSER_TIMEOUT) || 30000);
+      return context.newPage();
     } catch {
       await resetBrowser();
       browser = await launchBrowser();

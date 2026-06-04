@@ -10,7 +10,6 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
-
     "seed": "tsx scripts/seed.ts",
     "scrape": "tsx scripts/scrape.ts"
   },
@@ -25,7 +24,7 @@
     "mongoose": "^8.9.0",
     "next": "^16.2.7",
     "openai": "^4.76.0",
-    "puppeteer-core": "^25.1.0",
+    "playwright": "^1.60.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-markdown": "^10.1.0",
