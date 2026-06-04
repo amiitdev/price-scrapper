@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   serverExternalPackages: [
     "mongoose",
+    "puppeteer-core",
     "bcryptjs",
     "jsonwebtoken",
   ],

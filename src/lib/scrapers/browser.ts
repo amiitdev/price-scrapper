@@ -1,4 +1,4 @@
-import { chromium, type Browser, type Page } from "playwright";
+import puppeteer, { type Browser, type Page } from "puppeteer-core";
 import { randomUserAgent } from "./user-agents";
 
 let browserInstance: Browser | null = null;
@@ -17,11 +17,12 @@ function sanitizedEnv(): Record<string, string> {
 async function launchBrowser(): Promise<Browser> {
   const wsEndpoint = process.env.PLAYWRIGHT_WS_ENDPOINT;
   if (wsEndpoint) {
-    return await chromium.connect(wsEndpoint, {
-      timeout: Number(process.env.BROWSER_TIMEOUT) || 60000,
+    return await puppeteer.connect({
+      browserWSEndpoint: wsEndpoint,
+      defaultViewport: { width: 1920, height: 1080 },
     });
   }
-  return await chromium.launch({
+  return await puppeteer.launch({
     headless: true,
     timeout: 15000,
     args: [
@@ -45,7 +46,7 @@ export async function getBrowser(): Promise<Browser> {
   return withLock(async () => {
     if (browserInstance) {
       try {
-        if (browserInstance.isConnected()) {
+        if (browserInstance.connected) {
           return browserInstance;
         }
       } catch {
@@ -65,18 +66,16 @@ export async function createPage(options?: {
   let browser = await getBrowser();
   for (let i = 0; i < 2; i++) {
     try {
-      const context = await browser.newContext({
-        userAgent: randomUserAgent(),
-        viewport: options?.viewport ?? { width: 1920, height: 1080 },
-        locale: options?.locale ?? "en-IN",
-        timezoneId: "Asia/Kolkata",
-        extraHTTPHeaders: {
-          "Accept-Language": "en-IN,en;q=0.9,hi;q=0.8",
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        },
+      const context = await browser.createBrowserContext();
+      const page = await context.newPage();
+      await page.setUserAgent(randomUserAgent());
+      await page.setViewport(options?.viewport ?? { width: 1920, height: 1080 });
+      await page.setExtraHTTPHeaders({
+        "Accept-Language": "en-IN,en;q=0.9,hi;q=0.8",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       });
-      context.setDefaultTimeout(Number(process.env.BROWSER_TIMEOUT) || 30000);
-      return context.newPage();
+      page.setDefaultTimeout(Number(process.env.BROWSER_TIMEOUT) || 30000);
+      return page;
     } catch {
       await resetBrowser();
       browser = await launchBrowser();
