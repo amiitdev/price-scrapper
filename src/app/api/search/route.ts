@@ -13,7 +13,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-const SEARCH_TIMEOUT = parseInt(process.env.SEARCH_TIMEOUT ?? "25000");
+const SEARCH_TIMEOUT = parseInt(process.env.SEARCH_TIMEOUT ?? "45000");
 
 export async function GET(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for") ?? "anonymous";
