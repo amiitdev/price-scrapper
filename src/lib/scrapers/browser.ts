@@ -14,11 +14,26 @@ function sanitizedEnv(): Record<string, string> {
   return env;
 }
 
+async function resolveBrowserlessWSEndpoint(wsUrl: string): Promise<string> {
+  const token = new URL(wsUrl).searchParams.get("token");
+  if (!token) return wsUrl;
+  const res = await fetch(
+    `https://chrome.browserless.io/json/version?token=${encodeURIComponent(token)}`,
+    { signal: AbortSignal.timeout(10000) },
+  );
+  if (!res.ok) throw new Error(`browserless.io version endpoint returned ${res.status}`);
+  const data = (await res.json()) as { webSocketDebuggerUrl: string };
+  return data.webSocketDebuggerUrl;
+}
+
 async function launchBrowser(): Promise<Browser> {
   const wsEndpoint = process.env.PLAYWRIGHT_WS_ENDPOINT;
   if (wsEndpoint) {
+    const cdpEndpoint = wsEndpoint.includes("browserless.io/ws")
+      ? await resolveBrowserlessWSEndpoint(wsEndpoint)
+      : wsEndpoint;
     return await puppeteer.connect({
-      browserWSEndpoint: wsEndpoint,
+      browserWSEndpoint: cdpEndpoint,
       defaultViewport: { width: 1920, height: 1080 },
     });
   }
